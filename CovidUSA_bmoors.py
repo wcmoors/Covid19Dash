@@ -27,6 +27,8 @@ import plotly.graph_objects as go
 from datetime import datetime
 from dash.dependencies import Input, Output
 import snowflake.connector
+import os
+from os import environ
 
 a = environ.get('a')
 p = environ.get('p')
@@ -88,7 +90,7 @@ finally:
 ctx = snowflake.connector.connect(
     user=u,
     password=p,
-    account=a
+    account=a,
     warehouse='COMPUTE_WH',
     database='STARSCHEMA_AWS_US_EAST_2_COVID19_BY_STARSCHEMA_DM',
     schema='PUBLIC'
