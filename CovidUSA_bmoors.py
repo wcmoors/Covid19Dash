@@ -332,7 +332,7 @@ def serve_layout():
                   "width": "20%"
                  }),
         dbc.Col([
-            html.H1(children='USA Covid-19 Stats'),
+            html.H1(children='USA Covid-19 Tracker'),
                 html.Div(fig4, id='live-update-time'),#id to update on interval
                 dcc.Graph(
                     style={"height": "100%"},
@@ -386,9 +386,7 @@ def serve_layout():
 
 
 #create the app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],     meta_tags=[
-        {"name": "viewport", "content": "width=device-width, initial-scale=1"}
-    ])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 #set interval update functions
 #update time
