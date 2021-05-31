@@ -12,10 +12,9 @@
 
 #import mysql.connector as sql
 import pandas as pd
-from sqlalchemy import create_engine
+#from sqlalchemy import create_engine
 import pymysql
 import plotly
-import plotly.graph_objects as go
 import dash
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
@@ -27,6 +26,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 from dash.dependencies import Input, Output
 import snowflake.connector
+import os
+from os import environ
+#from config import p, u, a
 
 a = environ.get('a')
 p = environ.get('p')
@@ -56,8 +58,6 @@ u = environ.get('u')
 #    print('ERROR', error)
 #else:
 #    print('Password entered')
-    
-
 
 # ### Snowflake Connection Test
 
@@ -88,91 +88,71 @@ finally:
 ctx = snowflake.connector.connect(
     user=u,
     password=p,
-    account=a
+    account=a,
     warehouse='COMPUTE_WH',
     database='STARSCHEMA_AWS_US_EAST_2_COVID19_BY_STARSCHEMA_DM',
     schema='PUBLIC'
     )
 cs = ctx.cursor()
 
+
+# In[6]:
+
+
 def data_loading():
-    pd.options.display.float_format = '{:,}'.format
-    results = cs.execute("""
-    SELECT DISTINCT
-    COUNTRY_REGION,
-    CASE_TYPE,
-    SUM(CASES),
-
-    DATE
-    FROM JHU_COVID_19_TIMESERIES
-    WHERE COUNTRY_REGION = 'United States'
-    AND CASE_TYPE <> 'Recovered'
-    --AND LAST_REPORTED_FLAG = 'TRUE'
-
-    GROUP BY COUNTRY_REGION, CASE_TYPE, DATE
-
-    ORDER BY DATE DESC;""")
-    usa_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'CASE_TYPE', 'CASES', 'DATE'])
 
     results = cs.execute("""
-    SELECT DISTINCT
-    COUNTRY_REGION,
-    PROVINCE_STATE,
-    CONFIRMED,
-    DEATHS,
-    DATE,
-    ISO3166_1,
-    ISO3166_2
-    FROM JHU_DASHBOARD_COVID_19_GLOBAL
-    WHERE COUNTRY_REGION = 'United States'
-    --AND PROVINCE_STATE = 'Alabama'
-    AND LAST_REPORTED_FLAG = 'TRUE'
+    SELECT m.COUNTRY_REGION, m.DATE, m.CASES, m.DEATHS, m.DEATHS / m.CASES as CFR
+    FROM (SELECT COUNTRY_REGION, DATE, AVG(CASES) AS CASES, AVG(DEATHS) AS DEATHS
+      FROM ECDC_GLOBAL
+      GROUP BY COUNTRY_REGION, DATE) m
+    WHERE m.CASES > 0
+    AND COUNTRY_REGION = 'United States'
+    ORDER BY m.DATE;""")
+    df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'DATE', 'CASES', 'DEATHS', 'CFR'])
+    print(df)
 
-    ORDER BY COUNTRY_REGION, PROVINCE_STATE, DATE
-    ;""")
-    states_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'PROVINCE_STATE', 'CASES', 'DEATHS', 'DATE', 
-                                           'COUNTRY_CODE', 'STATE_CODE'])
+    #cs.close()
+    #ctx.close()
 
-
-    #data wrangling
-    usa_cases_df = usa_df[usa_df['CASE_TYPE']=='Confirmed']
-    usa_deaths_df = usa_df[usa_df['CASE_TYPE']=='Deaths']
-    usa_deaths_df = usa_deaths_df.rename(columns={"CASES": "DEATHS"})
-    usa_df = usa_cases_df.join(usa_deaths_df.set_index('DATE'), lsuffix='_caller', rsuffix='_other', on='DATE')
-    usa_df = usa_df.drop(['COUNTRY_REGION_other', 'CASE_TYPE_caller', 'CASE_TYPE_other'], axis=1)
-    usa_df = usa_df.rename(columns={"COUNTRY_REGION_caller": "COUNTRY_REGION"})
-    
-    states_df["CASES"] = states_df["CASES"].astype(float)
-    states_df["DEATHS"] = states_df["DEATHS"].astype(float)
-    
-    return usa_df, states_df
+    return df
 
 
 # In[7]:
 
 
-usa_df, states_df = data_loading()
+df = data_loading()
 
 
-TotalCases = usa_df.head(n=1).CASES[0]
+# ### Explore the Data
+
+# In[8]:
+
+
+df.head()
+
+
+# In[9]:
+
+
+TotalCases = df.sum(axis = 0, skipna = True).CASES
 TotalCases
 
 
-# In[23]:
+# In[10]:
 
 
-TotalDeaths = usa_df.head(n=1).DEATHS[0]
+TotalDeaths = df.sum(axis = 0, skipna = True).DEATHS
 TotalDeaths
 
 
 # ### Build the Dashboard
 
-# In[32]:
+# In[11]:
 
 
-def figures(TotalCases, TotalDeaths, usa_df, states_df):
+def figures(TotalCases, TotalDeaths, df):
     
-    #Total Cases
     fig = go.Figure()
     
     fig.add_trace(go.Indicator(
@@ -189,8 +169,7 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
             'mode' : "number",
             'delta' : {'reference': 90}}]
                          }})
-    
-    #Total Deaths
+
     fig2 = go.Figure()
     
     fig2.add_trace(go.Indicator(
@@ -207,9 +186,7 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
             'mode' : "number",
             'delta' : {'reference': 90}}]
                              }})
-    
-    #Bar Chart
-    fig3 = px.bar(usa_df, x="DATE", y="CASES", color="DEATHS", barmode="group")
+    fig3 = px.bar(df, x="DATE", y="CASES", color="DEATHS", barmode="group")
     
     fig3.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
@@ -219,96 +196,59 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
             xanchor="right",
             x=0.99
         ),
-
         legend_title_text='',
         xaxis_title= '',
         yaxis_title= 'Cases'
     )
     
-    fig3.update_traces(
-        
-    hovertemplate='%{x} <br>Cases: %{y:,.0f} <br>Deaths: %{marker.color:,.0f}')
-    
-    #Time
     fig4 = html.Div([
             datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         ], style = {'font-size': '1.0vw', 'background-color':'rgba(0,0,0,0)', "text-align": "center"})
     
-    #Choropleth
-    fig5 = go.Figure(data=go.Choropleth(
-            locations=states_df['STATE_CODE'], # Spatial coordinates
-            z = states_df['CASES'], # Data to be color-coded
-            locationmode = 'USA-states', # set of locations match entries in `locations`
-            text=states_df['PROVINCE_STATE'] + "<br>" + states_df['CASES'].map('{:,.0f}'.format) + ' ' 
-            + 'Cases' + "<br>" + states_df['DEATHS'].map('{:,.0f}'.format) + ' ' + 'Deaths',
-            hoverinfo = 'text',
-            colorscale = 'Purples',
-            colorbar_title = 'Cases',
-        ))
-
-    fig5.update_layout(
-        geo=dict(bgcolor= 'rgba(0,0,0,0)'),
-        paper_bgcolor='rgba(0,0,0,0)',
-        #title_text = 'USA Covid-19',
-        geo_scope='usa' # limite map scope to USA
-        #legend=dict(
-        #    yanchor="top",
-        #    y=0.99,
-        #    xanchor="right",
-        #    x=0.99
-        #),
-        #legend_title_text=''
-    )
-    return fig, fig2, fig3, fig4, fig5
+    return fig, fig2, fig3, fig4
 
 
-# In[33]:
+# In[12]:
 
 
-fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+fig, fig2, fig3, fig4 = figures(TotalCases, TotalDeaths, df)
 #config = dict({'responsive': True})
 
 
-# In[34]:
+# In[13]:
 
 
 #preview figs if needed
-#fig
+fig
 
 
-# In[35]:
+# In[14]:
 
 
-#fig2
+fig2
 
 
-# In[36]:
+# In[15]:
 
 
-#fig3
+fig3
 
 
-# In[37]:
+# In[16]:
 
 
-#fig4
+fig4
 
 
-# In[38]:
-
-
-#fig5
-
-
-# In[39]:
+# In[17]:
 
 
 def serve_layout():
-    usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    df = data_loading()
+    TotalCases = df.sum(axis = 0, skipna = True).CASES
+    TotalDeaths = df.sum(axis = 0, skipna = True).DEATHS
 
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    fig, fig2, fig3, fig4 = figures(TotalCases, TotalDeaths, df)
     
     #for clarity regarding intervals
     second = 1 * 1000
@@ -329,18 +269,11 @@ def serve_layout():
                     figure=fig
                 )
         ], style={"height": "100%", 
-                  #"width": "30.6666666667%"
-                  "width": "20%"
+                  "width": "30.6666666667%"
                  }),
         dbc.Col([
             html.H1(children='USA Covid-19 Stats'),
                 html.Div(fig4, id='live-update-time'),#id to update on interval
-                dcc.Graph(
-                    style={"height": "100%"},
-                    config = dict({'responsive': True}),
-                    id='live-update-map',
-                    figure=fig5
-                )
                 #html.Div([
                 #    html.Img(src=app.get_asset_url('united-states-png-8053.png'), 
                 #        style={"height": "100%",
@@ -352,7 +285,7 @@ def serve_layout():
                 #            'justify-content': 'center', 
                 #         }
                 #)
-            ], style={"height": "100%", "width": "50%",#style={"height": "100%", "width": "30.6666666667%",
+            ], style={"height": "100%", "width": "30.6666666667%",
                      }),
         dbc.Col([
             html.Div(style={"height": "15%"}),
@@ -363,8 +296,7 @@ def serve_layout():
                     figure=fig2
                 )
             ], style={"height": "100%", 
-                  #"width": "30.6666666667%"
-                   "width": "20%"   
+                  "width": "30.6666666667%"
                  })
     ],className="h-50"),
     # New Div for all elements in the new 'row' of the page
@@ -383,7 +315,7 @@ def serve_layout():
 
 # ### Create the App and Set the Interval Update Functions
 
-# In[40]:
+# In[18]:
 
 
 #create the app
@@ -403,11 +335,11 @@ def update_interval_time(n):
 @app.callback(Output('live-update-totalcases', 'figure'),
               Input('interval-component', 'n_intervals'))
 def update_interval_totalcases(n):
-    usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    df = data_loading()
+    TotalCases = df.sum(axis = 0, skipna = True).CASES
+    TotalDeaths = df.sum(axis = 0, skipna = True).DEATHS
 
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    fig, fig2, fig3, fig4 = figures(TotalCases, TotalDeaths, df)
     
     return fig
 
@@ -415,11 +347,11 @@ def update_interval_totalcases(n):
 @app.callback(Output('live-update-totaldeaths', 'figure'),
               Input('interval-component', 'n_intervals'))
 def update_interval_totaldeaths(n):
-    usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    df = data_loading()
+    TotalCases = df.sum(axis = 0, skipna = True).CASES
+    TotalDeaths = df.sum(axis = 0, skipna = True).DEATHS
 
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    fig, fig2, fig3, fig4 = figures(TotalCases, TotalDeaths, df)
     
     return fig2
 
@@ -427,25 +359,13 @@ def update_interval_totaldeaths(n):
 @app.callback(Output('live-update-bar', 'figure'),
               Input('interval-component', 'n_intervals'))                              
 def update_interval_bar(n):
-    usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    df = data_loading()
+    TotalCases = df.sum(axis = 0, skipna = True).CASES
+    TotalDeaths = df.sum(axis = 0, skipna = True).DEATHS
 
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    fig, fig2, fig3, fig4 = figures(TotalCases, TotalDeaths, df)
     
     return fig3
-
-#update map
-@app.callback(Output('live-update-map', 'figure'),
-              Input('interval-component', 'n_intervals'))                              
-def update_interval_map(n):
-    usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
-    
-    return fig5
 
 
 # ### Run the App
@@ -455,9 +375,8 @@ def update_interval_map(n):
 
 app.layout = serve_layout
 server = app.server
-
 if __name__ == '__main__':
-    app.run_server(debug=False, port=8050, host='127.0.0.1')
+    app.run_server(debug=False, port=8050)
 
 
 # In[ ]:
