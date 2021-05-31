@@ -26,19 +26,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from dash.dependencies import Input, Output
 import snowflake.connector
-
+from config import p, u, a
 
 # ### Get DB User
 
 # In[2]:
 
 
-try:
-    u = getpass.getpass(prompt='User: ')
-except Exception as error:
-    print('ERROR', error)
-else:
-    print('User entered')
+#try:
+#    u = getpass.getpass(prompt='User: ')
+#except Exception as error:
+#    print('ERROR', error)
+#else:
+#    print('User entered')
 
 
 # ### Get DB Password
@@ -46,16 +46,12 @@ else:
 # In[3]:
 
 
-try:
-    p = getpass.getpass()
-except Exception as error:
-    print('ERROR', error)
-else:
-    print('Password entered')
-    
-#if running from anaconda then use this:
-#pw = p #then replace p with pw in the connection string below
-
+#try:
+#    p = getpass.getpass()
+#except Exception as error:
+#    print('ERROR', error)
+#else:
+#    print('Password entered')
 
 # ### Snowflake Connection Test
 
@@ -66,7 +62,7 @@ else:
 ctx = snowflake.connector.connect(
     user=u,
     password=p,
-    account='ya85172.us-east-2.aws'
+    account=a
     )
 cs = ctx.cursor()
 try:
@@ -86,7 +82,7 @@ finally:
 ctx = snowflake.connector.connect(
     user=u,
     password=p,
-    account='ya85172.us-east-2.aws',
+    account=a,
     warehouse='COMPUTE_WH',
     database='STARSCHEMA_AWS_US_EAST_2_COVID19_BY_STARSCHEMA_DM',
     schema='PUBLIC'
