@@ -10,9 +10,7 @@
 # In[1]:
 
 
-#import mysql.connector as sql
 import pandas as pd
-from sqlalchemy import create_engine
 import pymysql
 import plotly
 import plotly.graph_objects as go
@@ -23,7 +21,6 @@ import dash_html_components as html
 import plotly.express as px
 import getpass
 import plotly.graph_objects as go
-#from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from dash.dependencies import Input, Output
 import snowflake.connector
