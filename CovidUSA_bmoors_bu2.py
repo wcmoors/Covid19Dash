@@ -367,16 +367,16 @@ def serve_layout():
                  })
     ],className="h-50"),
     # New Div for all elements in the new 'row' of the page
-    #dbc.Row([
-    #    dbc.Col([
-    #        dcc.Graph(
-    #            style={"height": "100%"},
-    #            config = dict({'responsive': True}),
-    #            id='live-update-bar',
-    #            figure=fig3
-    #        )
-    #    ], style={"height": "100%", "width": "100%"})
-    #],className="h-50") 
+    dbc.Row([
+        dbc.Col([
+            dcc.Graph(
+                style={"height": "100%"},
+                config = dict({'responsive': True}),
+                id='live-update-bar',
+                figure=fig3
+            )
+        ], style={"height": "100%", "width": "100%"})
+    ],className="h-50") 
     ], style={"height": "100vh"}, fluid=True)
 
 
@@ -423,16 +423,16 @@ def update_interval_totaldeaths(n):
     return fig2
 
 #update bar
-#@app.callback(Output('live-update-bar', 'figure'),
-#              Input('interval-component', 'n_intervals'))                              
-#def update_interval_bar(n):
-#    usa_df, states_df = data_loading()
-#    TotalCases = usa_df.head(n=1).CASES[0]
-#    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+@app.callback(Output('live-update-bar', 'figure'),
+              Input('interval-component', 'n_intervals'))                              
+def update_interval_bar(n):
+    usa_df, states_df = data_loading()
+    TotalCases = usa_df.head(n=1).CASES[0]
+    TotalDeaths = usa_df.head(n=1).DEATHS[0]
 
-#    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
-#    return fig3
+    return fig3
 
 #update map
 @app.callback(Output('live-update-map', 'figure'),
