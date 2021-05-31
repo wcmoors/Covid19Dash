@@ -10,7 +10,7 @@
 # In[1]:
 
 
-import mysql.connector as sql
+#import mysql.connector as sql
 import pandas as pd
 from sqlalchemy import create_engine
 import pymysql
