@@ -272,7 +272,7 @@ def serve_layout():
                   "width": "30.6666666667%"
                  }),
         dbc.Col([
-            html.H1(children='USA Covid Stats'),
+            html.H1(children='USA Covid-19 Stats'),
                 html.Div(fig4, id='live-update-time'),#id to update on interval
                 #html.Div([
                 #    html.Img(src=app.get_asset_url('united-states-png-8053.png'), 
