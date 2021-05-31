@@ -30,6 +30,10 @@ import os
 from os import environ
 #from config import p, u, a
 
+a = environ.get('a')
+p = environ.get('p')
+u = environ.get('u')
+
 # ### Get DB User
 
 # In[2]:
