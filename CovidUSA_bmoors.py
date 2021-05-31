@@ -274,17 +274,17 @@ def serve_layout():
         dbc.Col([
             html.H1(children='USA Covid Stats'),
                 html.Div(fig4, id='live-update-time'),#id to update on interval
-                html.Div([
-                    html.Img(src=app.get_asset_url('united-states-png-8053.png'), 
-                        style={"height": "100%",
-                              }
-                    )
-                ], style={"height": "85%",                                
-                            'display': 'flex',
-                            'align-items': 'center',
-                            'justify-content': 'center', 
-                         }
-                )
+                #html.Div([
+                #    html.Img(src=app.get_asset_url('united-states-png-8053.png'), 
+                #        style={"height": "100%",
+                #              }
+                #    )
+                #], style={"height": "85%",                                
+                #            'display': 'flex',
+                #            'align-items': 'center',
+                #            'justify-content': 'center', 
+                #         }
+                #)
             ], style={"height": "100%", "width": "30.6666666667%",
                      }),
         dbc.Col([
