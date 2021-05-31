@@ -26,6 +26,8 @@ import plotly.graph_objects as go
 from datetime import datetime
 from dash.dependencies import Input, Output
 import snowflake.connector
+import os
+from os import environ
 #from config import p, u, a
 
 # ### Get DB User
