@@ -374,7 +374,7 @@ def update_interval_bar(n):
 
 
 app.layout = serve_layout
-
+server = app.server
 if __name__ == '__main__':
     app.run_server(debug=False, port=8050)
 
