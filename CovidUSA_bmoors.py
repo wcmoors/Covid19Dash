@@ -64,9 +64,9 @@ ctx = snowflake.connector.connect(
     user=u,
     password=p,
     account=a,
-    warehouse='COMPUTE_WH',
-    database='STARSCHEMA_AWS_US_EAST_2_COVID19_BY_STARSCHEMA_DM',
-    schema='PUBLIC'
+    warehouse=w,
+    database=d,
+    schema=s
     )
 cs = ctx.cursor()
 
