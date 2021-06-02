@@ -30,33 +30,9 @@ from os import environ
 a = environ.get('a')
 p = environ.get('p')
 u = environ.get('u')
-
-# ### Get DB User
-
-# In[2]:
-
-
-#try:
-#    u = getpass.getpass(prompt='User: ')
-#except Exception as error:
-#    print('ERROR', error)
-#else:
-#    print('User entered')
-
-
-# ### Get DB Password
-
-# In[3]:
-
-
-#try:
-#    p = getpass.getpass()
-#except Exception as error:
-#    print('ERROR', error)
-#else:
-#    print('Password entered')
-    
-
+w = environ.get('w')
+d = environ.get('d')
+s = environ.get('s')
 
 # ### Snowflake Connection Test
 
@@ -153,14 +129,14 @@ def data_loading():
 usa_df, states_df = data_loading()
 
 
-TotalCases = usa_df.head(n=1).CASES[0]
+TotalCases = usa_df['CASES'].iloc[0]
 TotalCases
 
 
 # In[23]:
 
 
-TotalDeaths = usa_df.head(n=1).DEATHS[0]
+TotalDeaths = usa_df['DEATHS'].iloc[0]
 TotalDeaths
 
 
@@ -304,8 +280,8 @@ fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df
 
 def serve_layout():
     usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    TotalCases = usa_df['CASES'].iloc[0]
+    TotalDeaths = usa_df['DEATHS'].iloc[0]
 
     fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
@@ -403,8 +379,8 @@ def update_interval_time(n):
               Input('interval-component', 'n_intervals'))
 def update_interval_totalcases(n):
     usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    TotalCases = usa_df['CASES'].iloc[0]
+    TotalDeaths = usa_df['DEATHS'].iloc[0]
 
     fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
@@ -415,8 +391,8 @@ def update_interval_totalcases(n):
               Input('interval-component', 'n_intervals'))
 def update_interval_totaldeaths(n):
     usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    TotalCases = usa_df['CASES'].iloc[0]
+    TotalDeaths = usa_df['DEATHS'].iloc[0]
 
     fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
@@ -427,8 +403,8 @@ def update_interval_totaldeaths(n):
               Input('interval-component', 'n_intervals'))                              
 def update_interval_bar(n):
     usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    TotalCases = usa_df['CASES'].iloc[0]
+    TotalDeaths = usa_df['DEATHS'].iloc[0]
 
     fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
@@ -439,8 +415,8 @@ def update_interval_bar(n):
               Input('interval-component', 'n_intervals'))                              
 def update_interval_map(n):
     usa_df, states_df = data_loading()
-    TotalCases = usa_df.head(n=1).CASES[0]
-    TotalDeaths = usa_df.head(n=1).DEATHS[0]
+    TotalCases = usa_df['CASES'].iloc[0]
+    TotalDeaths = usa_df['DEATHS'].iloc[0]
 
     fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
     
