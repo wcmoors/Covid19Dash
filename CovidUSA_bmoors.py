@@ -518,9 +518,9 @@ def serve_layout():
 
 
 #create the app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],     meta_tags=[
-        {"name": "viewport", "content": "width=device-width, initial-scale=1"}
-    ])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP]#,     
+			#meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
+		)
 
 #set interval update functions
 #update time
