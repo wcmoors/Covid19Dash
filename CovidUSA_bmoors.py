@@ -73,40 +73,118 @@ cs = ctx.cursor()
 def data_loading():
     pd.options.display.float_format = '{:,}'.format
     results = cs.execute("""
+    SELECT
+    covid.COUNTRY_REGION,
+    covid.CASE_TYPE,
+    covid.CASES,
+    covid.DIFFERENCE,
+    covid.DATE,
+    pop.POPULATION,
+    IFNULL(vax.TOTAL_VACCINATIONS, 0) AS TOTAL_VACCINATIONS,
+    IFNULL(vax.PEOPLE_FULLY_VACCINATED, 0) AS PEOPLE_FULLY_VACCINATED,
+    IFNULL(vax.DAILY_VACCINATIONS, 0) AS DAILY_VACCINATIONS
+    
+    FROM (
     SELECT DISTINCT
+    ISO3166_1,
     COUNTRY_REGION,
     CASE_TYPE,
-    SUM(CASES),
-
+    SUM(CASES) AS CASES,
+    SUM(DIFFERENCE) AS DIFFERENCE,
     DATE
+    
     FROM JHU_COVID_19_TIMESERIES
+    
     WHERE COUNTRY_REGION = 'United States'
     AND CASE_TYPE <> 'Recovered'
     --AND LAST_REPORTED_FLAG = 'TRUE'
 
-    GROUP BY COUNTRY_REGION, CASE_TYPE, DATE
+    GROUP BY COUNTRY_REGION, ISO3166_1, CASE_TYPE, DATE
+    ) covid
+    
+    INNER JOIN (
+    SELECT
+    ISO3166_1,
+    SUM(TOTAL_POPULATION) AS POPULATION
+    FROM DEMOGRAPHICS
+    GROUP BY ISO3166_1
+    ) pop ON pop.ISO3166_1 = covid.ISO3166_1
+    
+    LEFT OUTER JOIN (
+    SELECT
+    DATE,
+    COUNTRY_REGION,
+    TOTAL_VACCINATIONS,
+    PEOPLE_FULLY_VACCINATED,
+    DAILY_VACCINATIONS
+    FROM OWID_VACCINATIONS
+    WHERE COUNTRY_REGION = 'United States'
+    ) vax ON vax.COUNTRY_REGION = covid.COUNTRY_REGION
+        AND vax.DATE = covid.DATE
 
-    ORDER BY DATE DESC;""")
-    usa_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'CASE_TYPE', 'CASES', 'DATE'])
-
+    ORDER BY covid.DATE DESC;""")
+    usa_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'CASE_TYPE', 'CASES', 'DIFFERENCE','DATE', 'POPULATION',
+                                          'TOTAL_VACCINATIONS','PEOPLE_FULLY_VACCINATED','DAILY_VACCINATIONS'])
+    
+    #FOR LINE CHART
+    #results = cs.execute("""
+    #SELECT DISTINCT
+    #COUNTRY_REGION,
+    #CASE_TYPE,
+    #SUM(CASES),
+    #SUM(DIFFERENCE),
+    #DATE
+    #
+    #FROM JHU_COVID_19_TIMESERIES
+    #WHERE COUNTRY_REGION = 'United States'
+    #AND CASE_TYPE <> 'Recovered'
+    #--AND LAST_REPORTED_FLAG = 'TRUE'
+    #
+    #GROUP BY COUNTRY_REGION, CASE_TYPE, DATE
+    #
+    #ORDER BY DATE DESC
+    #""")
+    #usats_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'CASE_TYPE', 'CASES', 'DIFFERENCE','DATE'])
+    
     results = cs.execute("""
     SELECT DISTINCT
-    COUNTRY_REGION,
-    PROVINCE_STATE,
-    CONFIRMED,
-    DEATHS,
-    DATE,
-    ISO3166_1,
-    ISO3166_2
+    JHU_DASHBOARD_COVID_19_GLOBAL.COUNTRY_REGION,
+    JHU_DASHBOARD_COVID_19_GLOBAL.PROVINCE_STATE,
+    JHU_DASHBOARD_COVID_19_GLOBAL.CONFIRMED,
+    JHU_DASHBOARD_COVID_19_GLOBAL.DEATHS,
+    JHU_DASHBOARD_COVID_19_GLOBAL.DATE,
+    JHU_DASHBOARD_COVID_19_GLOBAL.ISO3166_1,
+    JHU_DASHBOARD_COVID_19_GLOBAL.ISO3166_2,
+    vax.DOSES_ADMIN_TOTAL,
+    IFNULL(vax.PEOPLE_TOTAL_2ND_DOSE,0) AS FULLY_VACCINATED,
+    pop.POPULATION
     FROM JHU_DASHBOARD_COVID_19_GLOBAL
-    WHERE COUNTRY_REGION = 'United States'
+    INNER JOIN (
+        SELECT
+        STABBR,
+        MAX(DOSES_ADMIN_TOTAL) AS DOSES_ADMIN_TOTAL,
+        MAX(PEOPLE_TOTAL_2ND_DOSE) AS PEOPLE_TOTAL_2ND_DOSE
+        FROM JHU_VACCINES 
+        GROUP BY STABBR
+    ) vax ON vax.STABBR = JHU_DASHBOARD_COVID_19_GLOBAL.ISO3166_2
+    INNER JOIN ( --inner join excludes anything not in the 50 united states
+        SELECT
+        STATE,
+        SUM(TOTAL_POPULATION) AS POPULATION
+        FROM DEMOGRAPHICS
+        GROUP BY STATE
+    ) pop on pop.STATE = JHU_DASHBOARD_COVID_19_GLOBAL.ISO3166_2
+    WHERE JHU_DASHBOARD_COVID_19_GLOBAL.COUNTRY_REGION = 'United States'
+    AND JHU_DASHBOARD_COVID_19_GLOBAL.PROVINCE_STATE <> 'Diamond Princess'
+    AND JHU_DASHBOARD_COVID_19_GLOBAL.PROVINCE_STATE <> 'Grand Princess'
     --AND PROVINCE_STATE = 'Alabama'
-    AND LAST_REPORTED_FLAG = 'TRUE'
+    AND JHU_DASHBOARD_COVID_19_GLOBAL.LAST_REPORTED_FLAG = 'TRUE'
 
     ORDER BY COUNTRY_REGION, PROVINCE_STATE, DATE
-    ;""")
+    """)
     states_df=pd.DataFrame(results, columns=['COUNTRY_REGION', 'PROVINCE_STATE', 'CASES', 'DEATHS', 'DATE', 
-                                           'COUNTRY_CODE', 'STATE_CODE'])
+                                           'COUNTRY_CODE', 'STATE_CODE', 'DOSES_ADMIN_TOTAL',
+                                            'FULLY_VACCINATED', 'POPULATION'])
 
 
     #data wrangling
@@ -114,9 +192,14 @@ def data_loading():
     usa_deaths_df = usa_df[usa_df['CASE_TYPE']=='Deaths']
     usa_deaths_df = usa_deaths_df.rename(columns={"CASES": "DEATHS"})
     usa_df = usa_cases_df.join(usa_deaths_df.set_index('DATE'), lsuffix='_caller', rsuffix='_other', on='DATE')
-    usa_df = usa_df.drop(['COUNTRY_REGION_other', 'CASE_TYPE_caller', 'CASE_TYPE_other'], axis=1)
-    usa_df = usa_df.rename(columns={"COUNTRY_REGION_caller": "COUNTRY_REGION"})
-    
+    usa_df = usa_df.drop(['COUNTRY_REGION_other', 'CASE_TYPE_caller', 'CASE_TYPE_other', 'POPULATION_caller',
+                         'TOTAL_VACCINATIONS_caller','PEOPLE_FULLY_VACCINATED_caller','DAILY_VACCINATIONS_caller'], axis=1)
+    usa_df = usa_df.rename(columns={"COUNTRY_REGION_caller": "COUNTRY_REGION", "DIFFERENCE_caller": "DIFFERENCE_CASES",
+                                   "DIFFERENCE_other": "DIFFERENCE_DEATHS", "POPULATION_other": "POPULATION",
+                                   'TOTAL_VACCINATIONS_other':'TOTAL_VACCINATIONS',
+                                    'PEOPLE_FULLY_VACCINATED_other':'PEOPLE_FULLY_VACCINATED',
+                                    'DAILY_VACCINATIONS_other':'DAILY_VACCINATIONS'})
+    usa_df["POPULATION"] = usa_df["POPULATION"].astype(float)
     states_df["CASES"] = states_df["CASES"].astype(float)
     states_df["DEATHS"] = states_df["DEATHS"].astype(float)
     
@@ -130,22 +213,17 @@ usa_df, states_df = data_loading()
 
 
 TotalCases = usa_df['CASES'].iloc[0]
-TotalCases
-
-
-# In[23]:
-
-
 TotalDeaths = usa_df['DEATHS'].iloc[0]
-TotalDeaths
-
+TotalPop = usa_df['POPULATION'].iloc[0]
+TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+PercentVax = round(TotalVax / TotalPop * 100).astype(int)
 
 # ### Build the Dashboard
 
 # In[32]:
 
 
-def figures(TotalCases, TotalDeaths, usa_df, states_df):
+def figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df):
     
     #Total Cases
     fig = go.Figure()
@@ -165,26 +243,28 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
             'delta' : {'reference': 90}}]
                          }})
     
-    #Total Deaths
+    #Percentage Vaccinated
     fig2 = go.Figure()
     
     fig2.add_trace(go.Indicator(
-        value = TotalDeaths,
-        delta = {'reference': 1000000},
-        gauge = {'axis': {'range': [None, 1000000]}},
+        value = PercentVax,
+        number = {'suffix':'%'},
+        delta = {'reference': TotalPop},
+        gauge = {'axis': {'range': [None, TotalPop]},
+                'bar': {'color': "rebeccapurple"},},
         domain = {'row': 0, 'column': 0}))
     
     fig2.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         grid = {'rows': 1, 'columns': 1, 'pattern': "independent"},
         template = {'data' : {'indicator': [{
-            'title': {'text': "Total Deaths"},
+            'title': {'text': "Fully Vaccinated"},
             'mode' : "number",
             'delta' : {'reference': 90}}]
                              }})
     
     #Bar Chart
-    fig3 = px.bar(usa_df, x="DATE", y="CASES", color="DEATHS", barmode="group")
+    fig3 = px.bar(usa_df, x="DATE", y="DIFFERENCE_CASES", color="DAILY_VACCINATIONS", barmode="group")
     
     fig3.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
@@ -194,15 +274,50 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
             xanchor="right",
             x=0.99
         ),
-
-        legend_title_text='',
+        #coloraxis.colorbar.title = 'Deaths',
         xaxis_title= '',
         yaxis_title= 'Cases'
     )
-    
+    fig3.layout.coloraxis.colorbar.title = 'Vaccinations'
     fig3.update_traces(
-        
-    hovertemplate='%{x} <br>Cases: %{y:,.0f} <br>Deaths: %{marker.color:,.0f}')
+        hovertemplate='%{x} <br>Cases: %{y:,.0f} <br>Vaccinations: %{marker.color:,.0f}' 
+            + '<br>' + 'Fully Vaccinated: %{text}',
+                text=#states_df['PROVINCE_STATE'] 
+                #+ "<br>" + states_df['POPULATION'].map('{:,.0f}'.format) + ' ' + 'Population' 
+                #+ "<br>"
+                
+                (usa_df['PEOPLE_FULLY_VACCINATED']/usa_df['POPULATION']).map('{:,.0%}'.format)
+   
+                
+            #hoverinfo = 'text'
+    )
+    #fig3.add_trace(go.Scatter(
+    #    mode='lines+markers',
+    #    x = usa_df['DATE'],
+    #    y = usa_df['DAILY_VACCINATIONS'],
+    #    name="Daily Vaccinations",
+    #    marker_color='crimson'
+    #))
+    fig3.add_trace(
+    go.Scatter(
+        mode='markers',
+        x=['2020-12-21'],
+        y=[300000],
+        marker=dict(
+            color='papayawhip',
+            size=15,
+            line=dict(
+                color='black',
+                width=1
+            ),
+            symbol='asterisk'
+        ),
+
+        showlegend=False,
+        text='Vaccinations started Dec 21, 2020',
+        hoverinfo = 'text',
+    )
+    )
     
     #Time
     fig4 = html.Div([
@@ -212,35 +327,66 @@ def figures(TotalCases, TotalDeaths, usa_df, states_df):
     #Choropleth
     fig5 = go.Figure(data=go.Choropleth(
             locations=states_df['STATE_CODE'], # Spatial coordinates
-            z = states_df['CASES'], # Data to be color-coded
+            z = (states_df['FULLY_VACCINATED']/states_df['POPULATION'])*100,#states_df['CASES'], # Data to be color-coded
             locationmode = 'USA-states', # set of locations match entries in `locations`
-            text=states_df['PROVINCE_STATE'] + "<br>" + states_df['CASES'].map('{:,.0f}'.format) + ' ' 
-            + 'Cases' + "<br>" + states_df['DEATHS'].map('{:,.0f}'.format) + ' ' + 'Deaths',
+            text=states_df['PROVINCE_STATE'] 
+                #+ "<br>" + states_df['POPULATION'].map('{:,.0f}'.format) + ' ' + 'Population' 
+                #+ "<br>"
+                + "<br>" + (states_df['FULLY_VACCINATED']/states_df['POPULATION']).map('{:,.0%}'.format) + ' ' + 'Fully Vaccinated'
+                + "<br>"
+                #+ "<br>" + states_df['CASES'].map('{:,.0f}'.format) + ' ' + 'Cases' 
+                + "<br>" + (states_df['CASES']/states_df['POPULATION']).map('{:,.0%}'.format) + ' ' + 'Cases/Pop' 
+                #+ "<br>"
+                #+ "<br>" + states_df['DEATHS'].map('{:,.0f}'.format) + ' ' + 'Deaths'
+                + "<br>" + (states_df['DEATHS']/states_df['POPULATION']).map('{:,.2%}'.format) + ' ' + 'Deaths/Pop'
+                + "<br>"
+                + "<br>" + "{:.0%}".format((TotalCases/TotalPop)) + ' ' + 'US Cases/Pop'
+                + "<br>" + "{:.2%}".format((TotalDeaths/TotalPop)) + ' ' + 'US Deaths/Pop',    
+                
             hoverinfo = 'text',
-            colorscale = 'Purples',
-            colorbar_title = 'Cases',
+            colorscale = 'Purples'
+            #colorbar_title = 'Cases',
+
         ))
 
     fig5.update_layout(
         geo=dict(bgcolor= 'rgba(0,0,0,0)'),
         paper_bgcolor='rgba(0,0,0,0)',
-        #title_text = 'USA Covid-19',
-        geo_scope='usa' # limite map scope to USA
+        title_text = '',
+        #title={
+        #'text': "Percent Fully Vaccinated",
+        #'y':0.8,
+        #'x':0.5,
+        #'xanchor': 'center',
+        #'yanchor': 'top'
+        #},
+        #coloraxis_colorbar_tickformat=':.2%',
+        coloraxis_colorbar_title='test',
+        coloraxis_colorbar_ticksuffix="%",
+        geo_scope='usa', # limite map scope to USA
         #legend=dict(
-        #    yanchor="top",
+        #    yanchor="bottom",
         #    y=0.99,
-        #    xanchor="right",
+        #    xanchor="bottom",
         #    x=0.99
         #),
         #legend_title_text=''
     )
+    #fig5.update_coloraxes(colorbar_tickformat=':.2%')
+    #fig5.data[0].colorbar.x=0.85
+    fig5.data[0].colorbar.ticksuffix="%"
+    fig5.data[0].colorbar.title="% Fully<br>Vaccinated"
+    #line chart   
+    #fig6 = px.line(usats_df, x="DATE", y="DIFFERENCE", color='CASE_TYPE')
+
+    
     return fig, fig2, fig3, fig4, fig5
 
 
 # In[33]:
 
 
-fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
 #config = dict({'responsive': True})
 
 
@@ -282,8 +428,11 @@ def serve_layout():
     usa_df, states_df = data_loading()
     TotalCases = usa_df['CASES'].iloc[0]
     TotalDeaths = usa_df['DEATHS'].iloc[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    TotalPop = usa_df['POPULATION'].iloc[0]
+    TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    
+    fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
     #for clarity regarding intervals
     second = 1 * 1000
@@ -295,27 +444,33 @@ def serve_layout():
     #Set update interval
     dcc.Interval(interval= 5 * minute, id="interval-component"),
     dbc.Row([
+                dbc.Col([
+            html.H1(children='USA Covid-19 Tracker'),
+                html.Div(fig4, id='live-update-time'),#id to update on interval
+                ], style={"height": "100%", "width": "47%",#style={"height": "100%", "width": "30.6666666667%",
+                     })
+    ],style={"height": "2vh"}),#)
+    dbc.Row([
         dbc.Col([
-            html.Div(style={"height": "15%"}),
+            
                 dcc.Graph(
-                    style={"height": "75%"},
+                    style={"height": "100%"},
                     config = dict({'responsive': True}),
                     id='live-update-totalcases',
                     figure=fig
                 )
         ], style={"height": "100%", 
-                  #"width": "30.6666666667%"
-                  "width": "20%"
+                  "width": "30.6666666667%"
                  }),
         dbc.Col([
-            html.H1(children='USA Covid-19 Tracker'),
-                html.Div(fig4, id='live-update-time'),#id to update on interval
+            #html.H1(children='USA Covid-19 Tracker'),
+                #html.Div(fig4, id='live-update-time'),#id to update on interval
                 dcc.Graph(
                     style={"height": "100%"},
                     config = dict({'responsive': True}),
                     id='live-update-map',
                     figure=fig5
-                )
+                ),
                 #html.Div([
                 #    html.Img(src=app.get_asset_url('united-states-png-8053.png'), 
                 #        style={"height": "100%",
@@ -327,21 +482,22 @@ def serve_layout():
                 #            'justify-content': 'center', 
                 #         }
                 #)
-            ], style={"height": "100%", "width": "50%",#style={"height": "100%", "width": "30.6666666667%",
+            ], style={"height": "100%", "width": "47%",#style={"height": "100%", "width": "30.6666666667%",
                      }),
         dbc.Col([
-            html.Div(style={"height": "15%"}),
+            
                 dcc.Graph(
-                    style={"height": "75%"},
+                    style={"height": "100%"},
                     config = dict({'responsive': True}),
-                    id='live-update-totaldeaths',
+                    id='live-update-percentvax',
                     figure=fig2
                 )
             ], style={"height": "100%", 
-                  #"width": "30.6666666667%"
-                   "width": "20%"   
+                      "width": "47%" 
+                  #"width": "30.6666666667%" 
                  })
-    ],className="h-50"),
+
+    ],style={"height": "50vh"}),#,className="h-50"),
     # New Div for all elements in the new 'row' of the page
     dbc.Row([
         dbc.Col([
@@ -352,7 +508,7 @@ def serve_layout():
                 figure=fig3
             )
         ], style={"height": "100%", "width": "100%"})
-    ],className="h-50") 
+    ],style={"height": "48vh"})#className="h-50") 
     ], style={"height": "100vh"}, fluid=True)
 
 
@@ -362,7 +518,9 @@ def serve_layout():
 
 
 #create the app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],     meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"}
+    ])
 
 #set interval update functions
 #update time
@@ -381,20 +539,26 @@ def update_interval_totalcases(n):
     usa_df, states_df = data_loading()
     TotalCases = usa_df['CASES'].iloc[0]
     TotalDeaths = usa_df['DEATHS'].iloc[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    TotalPop = usa_df['POPULATION'].iloc[0]
+    TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    
+    fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
     return fig
 
-#update total deaths
-@app.callback(Output('live-update-totaldeaths', 'figure'),
+#update percent fully vaccinated
+@app.callback(Output('live-update-percentvax', 'figure'),
               Input('interval-component', 'n_intervals'))
-def update_interval_totaldeaths(n):
+def update_interval_percentvax(n):
     usa_df, states_df = data_loading()
     TotalCases = usa_df['CASES'].iloc[0]
     TotalDeaths = usa_df['DEATHS'].iloc[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    TotalPop = usa_df['POPULATION'].iloc[0]
+    TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    
+    fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
     return fig2
 
@@ -405,8 +569,11 @@ def update_interval_bar(n):
     usa_df, states_df = data_loading()
     TotalCases = usa_df['CASES'].iloc[0]
     TotalDeaths = usa_df['DEATHS'].iloc[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    TotalPop = usa_df['POPULATION'].iloc[0]
+    TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    
+    fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
     return fig3
 
@@ -417,8 +584,11 @@ def update_interval_map(n):
     usa_df, states_df = data_loading()
     TotalCases = usa_df['CASES'].iloc[0]
     TotalDeaths = usa_df['DEATHS'].iloc[0]
-
-    fig, fig2, fig3, fig4, fig5 = figures(TotalCases, TotalDeaths, usa_df, states_df)
+    TotalPop = usa_df['POPULATION'].iloc[0]
+    TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
+    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    
+    fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
     return fig5
 
