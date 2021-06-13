@@ -216,7 +216,7 @@ TotalCases = usa_df['CASES'].iloc[0]
 TotalDeaths = usa_df['DEATHS'].iloc[0]
 TotalPop = usa_df['POPULATION'].iloc[0]
 TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+PercentVax = round(TotalVax / TotalPop * 100)
 
 # ### Build the Dashboard
 
@@ -430,7 +430,7 @@ def serve_layout():
     TotalDeaths = usa_df['DEATHS'].iloc[0]
     TotalPop = usa_df['POPULATION'].iloc[0]
     TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    PercentVax = round(TotalVax / TotalPop * 100)
     
     fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
@@ -541,7 +541,7 @@ def update_interval_totalcases(n):
     TotalDeaths = usa_df['DEATHS'].iloc[0]
     TotalPop = usa_df['POPULATION'].iloc[0]
     TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    PercentVax = round(TotalVax / TotalPop * 100)
     
     fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
@@ -556,7 +556,7 @@ def update_interval_percentvax(n):
     TotalDeaths = usa_df['DEATHS'].iloc[0]
     TotalPop = usa_df['POPULATION'].iloc[0]
     TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    PercentVax = round(TotalVax / TotalPop * 100)
     
     fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
@@ -571,7 +571,7 @@ def update_interval_bar(n):
     TotalDeaths = usa_df['DEATHS'].iloc[0]
     TotalPop = usa_df['POPULATION'].iloc[0]
     TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    PercentVax = round(TotalVax / TotalPop * 100)
     
     fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
@@ -586,7 +586,7 @@ def update_interval_map(n):
     TotalDeaths = usa_df['DEATHS'].iloc[0]
     TotalPop = usa_df['POPULATION'].iloc[0]
     TotalVax = usa_df['PEOPLE_FULLY_VACCINATED'].iloc[0]
-    PercentVax = round(TotalVax / TotalPop * 100).astype(int)
+    PercentVax = round(TotalVax / TotalPop * 100)
     
     fig, fig2, fig3, fig4, fig5, = figures(TotalCases, TotalDeaths, PercentVax, TotalPop, usa_df, states_df)
     
