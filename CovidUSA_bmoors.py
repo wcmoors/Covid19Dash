@@ -438,11 +438,12 @@ def serve_layout():
     second = 1 * 1000
     minute = 1 * 1000 * 60
     hour = 1 * 1000 * 60 * 60
+	day = 24 * hour
     
     return dbc.Container([
     #All elements from the top of the page    
     #Set update interval
-    dcc.Interval(interval= 5 * minute, id="interval-component"),
+    dcc.Interval(interval= day, id="interval-component"),
     dbc.Row([
                 dbc.Col([
             html.H1(children='USA Covid-19 Tracker'),
