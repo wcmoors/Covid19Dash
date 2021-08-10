@@ -438,7 +438,7 @@ def serve_layout():
     second = 1 * 1000
     minute = 1 * 1000 * 60
     hour = 1 * 1000 * 60 * 60
-	day = 24 * hour
+    day = 24 * hour
     
     return dbc.Container([
     #All elements from the top of the page    
