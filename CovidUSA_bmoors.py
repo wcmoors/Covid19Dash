@@ -27,6 +27,13 @@ import snowflake.connector
 import os
 from os import environ
 
+#for building the api
+from flask_restful import Resource, Api, reqparse
+from flask import Flask
+import ast
+import numpy as np
+
+#to receive heroku variables
 a = environ.get('a')
 p = environ.get('p')
 u = environ.get('u')
@@ -594,13 +601,25 @@ def update_interval_map(n):
     return fig5
 
 
+# ### Build the API
+
+server = app.server
+api = Api(server)
+class Summary(Resource):
+    def get(self):
+        data = pd.DataFrame(np.array([[TotalCases, TotalDeaths, TotalPop, TotalVax, PercentVax]]),
+                   columns=['TotalCases', 'TotalDeaths', 'TotalPop', 'TotalVax', 'PercentVax'])
+        data = data.to_dict()  # convert dataframe to dictionary
+        return {'data': data}, 200  # return data and 200 OK code
+api.add_resource(Summary, '/summary')  # '/summary' is our entry point
+
+
 # ### Run the App
 
 # In[ ]:
 
 
 app.layout = serve_layout
-server = app.server
 
 if __name__ == '__main__':
     app.run_server(debug=False, port=8050, host='127.0.0.1')
